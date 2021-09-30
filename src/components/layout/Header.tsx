@@ -1,23 +1,25 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import useScrollTrigger from '@mui/material/useScrollTrigger';
 import CssBaseline from '@mui/material/CssBaseline';
 import Button from '@mui/material/Button';
-import { NavLink as RouterLink } from 'react-router-dom';
-import { styled } from '@mui/system';
+import { NavLink as RouterLink, useHistory } from 'react-router-dom';
+
+import Tab from '@mui/material/Tab';
 
 import logo from '../../assets/logo.svg';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
 
 import EstimateButton from '../common/EstimateButton';
+import { HeaderSection } from '../../App';
+
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 
 interface HeaderProps {
-    sections: ReadonlyArray<{
-        title: string;
-        url: string;
-    }>;
+    sections: ReadonlyArray<HeaderSection>;
 }
 
 interface Props {
@@ -46,7 +48,33 @@ const ElevationScroll: React.FC<Props> = (props: Props) => {
 };
 
 const Header: React.FC<HeaderProps> = (props) => {
+    const history = useHistory();
     const { sections } = props;
+
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+    const open = Boolean(anchorEl);
+
+    useEffect(() => {
+        const childrenPaths = sections
+            .filter((p) => p.children)
+            .reduce((a: string[], b) => [...a, ...b.children!.map((p) => p.url!)], []);
+        const pathIndex = childrenPaths.indexOf(window.location.pathname);
+        if (pathIndex >= 0) {
+            setSelectedIndex(pathIndex);
+        }
+    }, [sections]);
+
+    const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
+    const handleNavigate = (parentRef: HTMLAnchorElement, url: string) => {
+        // parentRef.classList.add('active');
+        history.push(url);
+    };
 
     return (
         <React.Fragment>
@@ -76,28 +104,122 @@ const Header: React.FC<HeaderProps> = (props) => {
                                 display: 'flex',
                             }}
                         >
-                            {sections.map((section) => (
-                                <Link
-                                    component={RouterLink}
-                                    to={section.url}
-                                    activeClassName="active"
-                                    key={section.title}
-                                    noWrap
-                                    variant="body2"
-                                    href={section.url}
-                                    sx={{
-                                        textDecoration: 'none',
-                                        p: 1,
-                                        flexShrink: 0,
-                                        color: 'inherit',
-                                        '&.active': {
-                                            color: (theme) => theme.palette.secondary.main,
-                                        },
-                                    }}
-                                >
-                                    {section.title}
-                                </Link>
-                            ))}
+                            {sections.map((section) => {
+                                const { title, url, children } = section;
+                                if (children) {
+                                    const tabId = `header-nav-tab-${title}`;
+                                    const menuId = `header-nav-menu-${title}`;
+                                    const tabRef = useRef<HTMLAnchorElement>(null);
+                                    return (
+                                        <React.Fragment key={title}>
+                                            <Tab
+                                                // id={tabId}
+                                                key={title}
+                                                label={title}
+                                                component={RouterLink}
+                                                to={url!}
+                                                ref={tabRef}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    p: 1,
+                                                    flexShrink: 0,
+                                                    opacity: 0.6,
+                                                    '&:hover': {
+                                                        backgroundColor: (theme) => theme.palette.primary.dark,
+                                                        opacity: 1,
+                                                    },
+                                                    '&.active': {
+                                                        color: (theme) => theme.palette.secondary.main,
+                                                        opacity: 1,
+                                                    },
+                                                }}
+                                                aria-controls={menuId}
+                                                aria-haspopup="true"
+                                                aria-expanded={open ? 'true' : undefined}
+                                                onClick={handleOpenMenu}
+                                                onMouseOver={handleOpenMenu}
+                                            />
+                                            <Menu
+                                                // id={menuId}
+                                                aria-labelledby={tabId}
+                                                anchorEl={anchorEl}
+                                                open={open}
+                                                onClose={handleClose}
+                                                anchorOrigin={{
+                                                    vertical: 'top',
+                                                    horizontal: 'left',
+                                                }}
+                                                transformOrigin={{
+                                                    vertical: 'top',
+                                                    horizontal: 'left',
+                                                }}
+                                                MenuListProps={{ onMouseLeave: handleClose }}
+                                                transitionDuration={100}
+                                                elevation={0}
+                                                sx={{
+                                                    '& .MuiMenu-paper': {
+                                                        backgroundColor: (theme) => theme.palette.primary.main,
+                                                        color: (theme) => theme.palette.primary.contrastText,
+                                                        opacity: 0.6,
+                                                    },
+                                                    '& .MuiMenuItem-root': {
+                                                        opacity: 0.6,
+                                                        fontSize: '0.875rem',
+                                                        '&:hover': {
+                                                            backgroundColor: (theme) => theme.palette.primary.dark,
+                                                            opacity: 1,
+                                                        },
+                                                        '&.Mui-selected': {
+                                                            color: (theme) => theme.palette.secondary.main,
+                                                            opacity: 1,
+                                                        },
+                                                    },
+                                                }}
+                                            >
+                                                <MenuItem key="-1" onClick={handleClose}>
+                                                    {title}
+                                                </MenuItem>
+                                                {children.map((menuItem, index) => (
+                                                    <MenuItem
+                                                        key={index}
+                                                        onClick={() => {
+                                                            handleNavigate(tabRef.current!, menuItem.url!);
+                                                            setSelectedIndex(index);
+                                                            handleClose();
+                                                        }}
+                                                        selected={index === selectedIndex}
+                                                    >
+                                                        {menuItem.title}
+                                                    </MenuItem>
+                                                ))}
+                                            </Menu>
+                                        </React.Fragment>
+                                    );
+                                } else {
+                                    return (
+                                        <Tab
+                                            key={title}
+                                            label={title}
+                                            value={url}
+                                            to={url!}
+                                            component={RouterLink}
+                                            sx={{
+                                                textTransform: 'none',
+                                                p: 1,
+                                                flexShrink: 0,
+                                                '&:hover': {
+                                                    backgroundColor: (theme) => theme.palette.primary.dark,
+                                                    opacity: 1,
+                                                },
+                                                '&.active': {
+                                                    color: (theme) => theme.palette.secondary.main,
+                                                    opacity: 1,
+                                                },
+                                            }}
+                                        />
+                                    );
+                                }
+                            })}
                         </Box>
                         {/* Nav groups */}
 
